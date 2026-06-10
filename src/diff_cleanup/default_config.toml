@@ -1,0 +1,31 @@
+# diff_cleanup configuration.
+#
+# Each entry under [changes] decides how one rl-diff change category is treated:
+#
+#   "deny"  -> structural noise. On its own it does NOT keep an entry; an entry
+#              whose every change is "deny" (and has no violations/warnings) is
+#              suppressed.
+#   "allow" -> signal. Its presence keeps the entry.
+#
+# A change category that does not appear below is treated as "allow" (kept). The
+# tool errs toward surfacing: a category we have never seen is never silently
+# dropped. Violations and warnings always keep an entry regardless of this table.
+#
+# To customize, copy this file, edit the values, and pass it with --config.
+
+[changes]
+# Structural — byte/path/size churn with no security signal.
+hash = "deny"           # SHA-256 content changed
+name = "deny"           # file path or name changed (often just an embedded version string)
+size = "deny"           # file size changed
+entropy = "deny"        # Shannon entropy of content changed (byte-derived; tracks hash/size)
+
+# Signal — keep the entry.
+functionality = "allow"   # binary behavior profile changed
+action = "allow"          # install-time registry/filesystem actions changed
+indicator = "allow"       # threat classification indicators changed
+tag = "allow"             # classification tags changed
+policy = "allow"          # policy controls (SQ-codes) added or removed
+vulnerability = "allow"   # CVEs added or removed
+classification = "allow"  # file threat classification changed (e.g. '' -> 'malicious')
+format = "allow"          # detected file format/type changed

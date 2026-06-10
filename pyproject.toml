@@ -1,3 +1,28 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "spectra-assure-diff-cleanup"
+version = "0.1.0"
+description = "Reduce noise in Spectra Assure rl-diff JSON reports."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest", "ruff", "mypy"]
+
+[project.scripts]
+diff-cleanup = "diff_cleanup.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+diff_cleanup = ["*.toml"]
+
 [tool.ruff]
 target-version = "py312"
 line-length = 100

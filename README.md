@@ -1,6 +1,14 @@
-# project-name
+# spectra-assure-diff-cleanup
 
-Brief description.
+Reduce noise in Spectra Assure `rl-diff` JSON reports so only meaningful changes
+remain. A minor version bump can produce hundreds of diff entries that are just
+file moves, renames, and routine content updates with no security relevance. This
+tool keeps an entry only when it carries real signal — a policy violation, a
+warning, or a change to the file's behavior, install actions, threat indicators,
+or classification — and drops the rest.
+
+In testing against a real HP SureClick Enterprise minor bump, this reduced 629
+diff entries to the 21 that actually mattered.
 
 ## Disclaimer of Warranty
 
@@ -25,7 +33,101 @@ pip install -e ".[dev]"
 
 ## Usage
 
-TODO
+The tool takes one `rl-diff` JSON report in and writes a cleaned copy out, with
+the noise entries removed. Everything else about the report is preserved.
+
+### 1. Generate an `rl-diff` report
+
+Produce the report with the Spectra Assure CLI (`rl-secure`):
+
+```bash
+rl-secure report rl-diff pkg:rl/<project>/<package>@<new> \
+  --diff-with=<old> --output-path .
+```
+
+This writes `report.rl-diff-diff-with-<old>.json` to the current directory.
+
+### 2. Clean it
+
+Run the tool on that report. After `pip install` you can use either the
+`diff-cleanup` console command or `python -m diff_cleanup` — they are identical:
+
+```bash
+diff-cleanup report.rl-diff-diff-with-<old>.json -o cleaned.json
+# or
+python -m diff_cleanup report.rl-diff-diff-with-<old>.json -o cleaned.json
+```
+
+`cleaned.json` is the same report structure with the noise entries dropped from
+`report.diff`.
+
+### Arguments
+
+| Argument | Meaning | Default |
+|----------|---------|---------|
+| `input` (positional) | Path to the `rl-diff` JSON report to clean | read from **stdin** |
+| `-o`, `--output` | Path to write the cleaned report | write to **stdout** |
+| `-c`, `--config` | Alternate allow/deny TOML for this run (see below) | bundled config |
+
+### Input and output
+
+Because input defaults to stdin and output to stdout, the tool composes in a
+pipeline:
+
+```bash
+cat report.rl-diff-diff-with-1.0.1.json | diff-cleanup > cleaned.json
+```
+
+Mix and match freely — read a file, write to stdout:
+
+```bash
+diff-cleanup report.rl-diff-diff-with-1.0.1.json | jq '.report.diff | length'
+```
+
+A one-line summary (`kept N / M entries (K suppressed)`) is written to **stderr**,
+so it never pollutes the JSON on stdout. On a bad input (missing file, invalid
+JSON, or a file that isn't an `rl-diff` report) the tool prints
+`diff_cleanup: <reason>` to stderr and exits non-zero.
+
+### How it decides
+
+An entry is suppressed only when it has no violations, no warnings, and every
+change category it reports is *denied* (structural noise). Anything else —
+including a change category the tool hasn't seen before — is kept. The tool errs
+toward surfacing.
+
+By default the denied categories are `hash`, `name`, `size`, and `entropy`.
+
+### Configuring which changes are noise
+
+Which categories count as noise (`deny`) versus signal (`allow`) lives in a TOML
+config that the tool reads **automatically** — no flag needed. It ships at
+`src/diff_cleanup/default_config.toml` as a `[changes]` table mapping each
+category to `"deny"` or `"allow"`:
+
+```toml
+[changes]
+hash = "deny"
+name = "deny"
+size = "deny"
+entropy = "deny"
+tag  = "allow"
+# ...
+```
+
+Edit that file to change behavior. With an editable install (`pip install -e .`)
+the package points at the source tree, so your edits take effect directly.
+
+A category not listed is treated as `allow` (kept), so a brand-new category is
+never silently dropped. Violations and warnings always keep an entry regardless
+of the table.
+
+To try an alternate ruleset without touching the bundled file, point `--config`
+at your own copy for that run:
+
+```bash
+diff-cleanup report.json --config my-rules.toml -o cleaned.json
+```
 
 ## Development
 

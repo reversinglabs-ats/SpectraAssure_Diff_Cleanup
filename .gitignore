@@ -10,3 +10,7 @@ build/
 .ruff_cache/
 .pytest_cache/
 *.egg
+CLAUDE.md
+
+# Real HP SureClick Enterprise scan — local regression fixture, not for commit.
+tests/data/report.rl-diff-diff-with-4.4.32.159.json
