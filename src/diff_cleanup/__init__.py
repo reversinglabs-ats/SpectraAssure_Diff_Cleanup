@@ -15,8 +15,47 @@ automatically into :data:`DEFAULT_DENY_KEYS`. Edit that file to change behavior;
 flag required. :func:`load_deny_keys` parses an alternate config when one is given.
 """
 
+import re
 import tomllib
 from pathlib import Path
+
+_VERSION_RE = re.compile(r"\d+[._]\d+[._]\d+[._]\d+")
+_GUID_RE = re.compile(
+    r"\{[0-9A-Fa-f]{8}(?:-[0-9A-Fa-f]{4}){3}-[0-9A-Fa-f]{12}\}", re.IGNORECASE
+)
+
+
+def _normalize(s: str) -> str:
+    """Replace version strings and GUIDs with placeholders for pairing comparisons."""
+    s = _VERSION_RE.sub("\x00V", s)
+    return _GUID_RE.sub("\x00G", s)
+
+
+def _strip_paired_actions(actions: list[dict]) -> list[dict]:
+    """Remove removed/added pairs whose values differ only by version string or GUID.
+
+    A removed item and an added item are a pair when their values normalize
+    identically. Balanced groups (N removed, N added with the same normalized
+    form) are all suppressed; any imbalance means something genuinely changed
+    and all items in that group are kept.
+    """
+    removed_by_norm: dict[str, list[int]] = {}
+    added_by_norm: dict[str, list[int]] = {}
+
+    for i, a in enumerate(actions):
+        if a["change"] == "removed":
+            removed_by_norm.setdefault(_normalize(a["previous"]), []).append(i)
+        elif a["change"] == "added":
+            added_by_norm.setdefault(_normalize(a["current"]), []).append(i)
+
+    suppress: set[int] = set()
+    for key, rm_idxs in removed_by_norm.items():
+        add_idxs = added_by_norm.get(key, [])
+        if add_idxs and len(rm_idxs) == len(add_idxs):
+            suppress.update(rm_idxs)
+            suppress.update(add_idxs)
+
+    return [a for i, a in enumerate(actions) if i not in suppress]
 
 DEFAULT_CONFIG_PATH = Path(__file__).with_name("default_config.toml")
 
@@ -84,8 +123,21 @@ def clean_report(
         raise ValueError("not an rl-diff report: missing report.diff")
 
     kept = [entry for entry in diff if is_signal(entry, deny_keys)]
+    kept = [_with_actions_stripped(e) for e in kept]
 
     cleaned = dict(report)
     cleaned["report"] = dict(report["report"])
     cleaned["report"]["diff"] = kept
     return cleaned, len(kept), len(diff) - len(kept)
+
+
+def _with_actions_stripped(entry: dict) -> dict:
+    actions = entry.get("changes", {}).get("action")
+    if not actions:
+        return entry
+    stripped = _strip_paired_actions(actions)
+    if len(stripped) == len(actions):
+        return entry
+    new_entry = dict(entry)
+    new_entry["changes"] = {**entry["changes"], "action": stripped}
+    return new_entry

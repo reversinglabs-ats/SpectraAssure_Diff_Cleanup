@@ -4,7 +4,7 @@ import argparse
 import json
 import sys
 
-from diff_cleanup import DEFAULT_DENY_KEYS, clean_report, load_deny_keys
+from diff_cleanup import DEFAULT_DENY_KEYS, clean_report, is_signal, load_deny_keys
 
 
 def _load(path: str | None) -> dict:
@@ -44,6 +44,11 @@ def main(argv: list[str] | None = None) -> int:
         "--config",
         help="Override the bundled allow/deny TOML with an alternate config file.",
     )
+    parser.add_argument(
+        "--explain",
+        action="store_true",
+        help="Print the change keys for each suppressed entry to stderr.",
+    )
     args = parser.parse_args(argv)
 
     try:
@@ -53,6 +58,13 @@ def main(argv: list[str] | None = None) -> int:
     except (OSError, json.JSONDecodeError, ValueError) as err:
         print(f"diff_cleanup: {err}", file=sys.stderr)
         return 1
+
+    if args.explain:
+        for e in report["report"]["diff"]:
+            if not is_signal(e, deny_keys):
+                path = e.get("file", {}).get("path") or e.get("file", {}).get("name", "<unknown>")
+                keys = ", ".join(sorted(e.get("changes", {})))
+                print(f"suppressed  {path}  [{keys}]", file=sys.stderr)
 
     _dump(cleaned, args.output)
     print(

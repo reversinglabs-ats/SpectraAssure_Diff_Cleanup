@@ -1,4 +1,7 @@
-# diff_cleanup configuration.
+# diff_cleanup default configuration — loaded automatically at startup.
+#
+# You do NOT need to pass --config to use this file. It is the built-in ruleset.
+# Pass --config only to override it for a single run without editing this file.
 #
 # Each entry under [changes] decides how one rl-diff change category is treated:
 #
@@ -11,7 +14,9 @@
 # tool errs toward surfacing: a category we have never seen is never silently
 # dropped. Violations and warnings always keep an entry regardless of this table.
 #
-# To customize, copy this file, edit the values, and pass it with --config.
+# To customize for all runs, edit this file directly (editable installs pick up
+# changes immediately). To customize for one run only, copy this file, edit it,
+# and pass it with --config.
 
 [changes]
 # Structural — byte/path/size churn with no security signal.
@@ -20,8 +25,11 @@ name = "deny"           # file path or name changed (often just an embedded vers
 size = "deny"           # file size changed
 entropy = "deny"        # Shannon entropy of content changed (byte-derived; tracks hash/size)
 
+# Structural — behavioral profile hash changes with every recompile even when
+# the actual behavior is identical; suppress unless another signal key is present.
+functionality = "deny"    # binary behavior profile changed
+
 # Signal — keep the entry.
-functionality = "allow"   # binary behavior profile changed
 action = "allow"          # install-time registry/filesystem actions changed
 indicator = "allow"       # threat classification indicators changed
 tag = "allow"             # classification tags changed

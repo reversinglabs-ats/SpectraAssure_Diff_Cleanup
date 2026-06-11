@@ -14,3 +14,6 @@ CLAUDE.md
 
 # Real HP SureClick Enterprise scan — local regression fixture, not for commit.
 tests/data/report.rl-diff-diff-with-4.4.32.159.json
+
+# Local output files produced while testing the tool.
+cleaned.json

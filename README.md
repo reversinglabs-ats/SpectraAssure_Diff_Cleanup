@@ -8,7 +8,7 @@ warning, or a change to the file's behavior, install actions, threat indicators,
 or classification — and drops the rest.
 
 In testing against a real HP SureClick Enterprise minor bump, this reduced 629
-diff entries to the 21 that actually mattered.
+diff entries to the 3 that actually mattered.
 
 ## Disclaimer of Warranty
 
@@ -68,6 +68,7 @@ python -m diff_cleanup report.rl-diff-diff-with-<old>.json -o cleaned.json
 | `input` (positional) | Path to the `rl-diff` JSON report to clean | read from **stdin** |
 | `-o`, `--output` | Path to write the cleaned report | write to **stdout** |
 | `-c`, `--config` | Alternate allow/deny TOML for this run (see below) | bundled config |
+| `--explain` | Print one line per suppressed entry to stderr showing why it was dropped | off |
 
 ### Input and output
 
@@ -96,7 +97,21 @@ change category it reports is *denied* (structural noise). Anything else —
 including a change category the tool hasn't seen before — is kept. The tool errs
 toward surfacing.
 
-By default the denied categories are `hash`, `name`, `size`, and `entropy`.
+By default the denied categories are `hash`, `name`, `size`, `entropy`, and `functionality`.
+
+To see exactly why each entry was suppressed, pass `--explain`:
+
+```bash
+diff-cleanup report.json --explain -o cleaned.json
+# stderr output (one line per suppressed entry):
+# suppressed  %InstallDir%/4.4.32.159/BrService.exe  [hash, name, size]
+# suppressed  %InstallDir%/4.4.32.159/BrChrome.dll   [functionality, hash, name, size]
+# ...
+# kept 3 / 629 entries (626 suppressed)
+```
+
+`--explain` writes to stderr so it doesn't interfere with the JSON on stdout or
+in `-o`. It can be combined with any other flags.
 
 ### Configuring which changes are noise
 
