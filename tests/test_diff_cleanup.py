@@ -196,7 +196,7 @@ def action(change, value):
 def test_version_string_pair_stripped():
     actions = [
         action("removed", "key=HKCR\\Bromium_4.4.32.159"),
-        action("added",   "key=HKCR\\Bromium_4.4.32.162"),
+        action("added", "key=HKCR\\Bromium_4.4.32.162"),
     ]
     assert _strip_paired_actions(actions) == []
 
@@ -204,7 +204,7 @@ def test_version_string_pair_stripped():
 def test_guid_rotation_pair_stripped():
     actions = [
         action("removed", r"key=HKCR\CLSID\{84EB34C1-BEA6-478B-9E23-D0A2074E78A3}"),
-        action("added",   r"key=HKCR\CLSID\{84EB34C1-BEA6-478B-9E23-D0A2074E789E}"),
+        action("added", r"key=HKCR\CLSID\{84EB34C1-BEA6-478B-9E23-D0A2074E789E}"),
     ]
     assert _strip_paired_actions(actions) == []
 
@@ -224,7 +224,7 @@ def test_imbalanced_group_kept():
     actions = [
         action("removed", r"key=HKCR\{11111111-0000-0000-0000-000000000001}"),
         action("removed", r"key=HKCR\{11111111-0000-0000-0000-000000000002}"),
-        action("added",   r"key=HKCR\{22222222-0000-0000-0000-000000000001}"),
+        action("added", r"key=HKCR\{22222222-0000-0000-0000-000000000001}"),
     ]
     assert len(_strip_paired_actions(actions)) == 3
 
@@ -235,16 +235,16 @@ def test_multi_balanced_group_all_stripped():
         action("removed", "key=HKCR\\{11111111-0000-0000-0000-000000000001}"),
         action("removed", "key=HKCR\\{11111111-0000-0000-0000-000000000002}"),
         action("removed", "key=HKCR\\{11111111-0000-0000-0000-000000000003}"),
-        action("added",   "key=HKCR\\{22222222-0000-0000-0000-000000000001}"),
-        action("added",   "key=HKCR\\{22222222-0000-0000-0000-000000000002}"),
-        action("added",   "key=HKCR\\{22222222-0000-0000-0000-000000000003}"),
+        action("added", "key=HKCR\\{22222222-0000-0000-0000-000000000001}"),
+        action("added", "key=HKCR\\{22222222-0000-0000-0000-000000000002}"),
+        action("added", "key=HKCR\\{22222222-0000-0000-0000-000000000003}"),
     ]
     assert _strip_paired_actions(actions) == []
 
 
 def test_mixed_actions_only_pairs_stripped():
     paired_rm = action("removed", "key=HKCR\\Bromium_4.4.32.159")
-    paired_add = action("added",   "key=HKCR\\Bromium_4.4.32.162")
+    paired_add = action("added", "key=HKCR\\Bromium_4.4.32.162")
     genuine_rm = action("removed", "key=HKCR\\OldOnlyFeature")
     actions = [paired_rm, paired_add, genuine_rm]
     assert _strip_paired_actions(actions) == [genuine_rm]
@@ -258,7 +258,7 @@ def test_clean_report_strips_action_pairs():
                     "changes": {
                         "action": [
                             action("removed", "key=HKCR\\Bromium_4.4.32.159"),
-                            action("added",   "key=HKCR\\Bromium_4.4.32.162"),
+                            action("added", "key=HKCR\\Bromium_4.4.32.162"),
                             action("removed", "key=HKCR\\OnlyInOldVersion"),
                         ]
                     },
@@ -276,16 +276,12 @@ def test_clean_report_strips_action_pairs():
 
 def test_clean_report_action_stripping_does_not_mutate_input():
     original_action = action("removed", "key=HKCR\\Bromium_4.4.32.159")
+    original_actions = [original_action, action("added", "key=HKCR\\Bromium_4.4.32.162")]
     report = {
         "report": {
             "diff": [
                 {
-                    "changes": {
-                        "action": [
-                            original_action,
-                            action("added", "key=HKCR\\Bromium_4.4.32.162"),
-                        ]
-                    },
+                    "changes": {"action": original_actions},
                     "violations": [],
                     "warnings": [],
                 }
@@ -293,17 +289,19 @@ def test_clean_report_action_stripping_does_not_mutate_input():
         }
     }
     clean_report(report)
-    assert len(report["report"]["diff"][0]["changes"]["action"]) == 2
+    assert len(original_actions) == 2
 
 
 def test_explain_flag_prints_suppressed_entries(capsys):
     from diff_cleanup.__main__ import main
 
-    main(["--explain", str(DATA / "report.rl-diff-diff-with-4.4.32.159.json")]) if FIXTURE.exists() else pytest.skip("fixture not present")
+    main(
+        ["--explain", str(DATA / "report.rl-diff-diff-with-4.4.32.159.json")]
+    ) if FIXTURE.exists() else pytest.skip("fixture not present")
     captured = capsys.readouterr()
-    lines = [l for l in captured.err.splitlines() if l.startswith("suppressed")]
+    lines = [ln for ln in captured.err.splitlines() if ln.startswith("suppressed")]
     assert len(lines) == 626
-    assert all("[" in l and "]" in l for l in lines)
+    assert all("[" in ln and "]" in ln for ln in lines)
 
 
 def test_clean_report_honors_custom_deny_keys():
