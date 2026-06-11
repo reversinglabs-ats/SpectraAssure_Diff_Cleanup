@@ -20,9 +20,7 @@ import tomllib
 from pathlib import Path
 
 _VERSION_RE = re.compile(r"\d+[._]\d+[._]\d+[._]\d+")
-_GUID_RE = re.compile(
-    r"\{[0-9A-Fa-f]{8}(?:-[0-9A-Fa-f]{4}){3}-[0-9A-Fa-f]{12}\}", re.IGNORECASE
-)
+_GUID_RE = re.compile(r"\{[0-9A-Fa-f]{8}(?:-[0-9A-Fa-f]{4}){3}-[0-9A-Fa-f]{12}\}", re.IGNORECASE)
 
 
 def _normalize(s: str) -> str:
@@ -56,6 +54,7 @@ def _strip_paired_actions(actions: list[dict]) -> list[dict]:
             suppress.update(add_idxs)
 
     return [a for i, a in enumerate(actions) if i not in suppress]
+
 
 DEFAULT_CONFIG_PATH = Path(__file__).with_name("default_config.toml")
 
