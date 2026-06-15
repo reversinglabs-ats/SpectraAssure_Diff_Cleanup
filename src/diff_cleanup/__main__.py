@@ -2,9 +2,11 @@
 
 import argparse
 import json
+import shutil
 import sys
+from pathlib import Path
 
-from diff_cleanup import DEFAULT_DENY_KEYS, clean_report, is_signal, load_deny_keys
+from diff_cleanup import DEFAULT_DENY_KEYS, clean_report, html_report, is_signal, load_deny_keys
 
 
 def _load(path: str | None) -> dict:
@@ -24,6 +26,34 @@ def _dump(report: dict, path: str | None) -> None:
         sys.stdout.write("\n")
 
 
+def _run_html(args: argparse.Namespace, deny_keys: frozenset[str]) -> int:
+    """Filter the diff inside an rl-html report directory, writing a cleaned copy."""
+    if not args.output:
+        raise ValueError("an rl-html report needs -o OUTPUT_DIR (the report is a directory)")
+    src, dst = Path(args.input), Path(args.output)
+    if dst.exists():
+        raise ValueError(f"output directory already exists: {dst}")
+
+    # Validate and filter up front, before copying anything, so an unreadable or
+    # unsupported report fails fast instead of leaving a half-written output dir.
+    text = (src / "__deps" / "data.js").read_text(encoding="latin-1")
+    new_text, kept, suppressed = html_report.clean_data_js(text, deny_keys)
+
+    if args.explain:
+        _, diff = html_report.decode_blob(html_report.read_blob(text, "diffData"))
+        for e in html_report.suppressed_entries(diff, deny_keys):
+            keys = ", ".join(sorted(e[html_report._CHANGES]))
+            print(f"suppressed  {html_report.entry_path(e)}  [{keys}]", file=sys.stderr)
+
+    shutil.copytree(src, dst)
+    (dst / "__deps" / "data.js").write_text(new_text, encoding="latin-1")
+    print(
+        f"kept {kept} / {kept + suppressed} entries ({suppressed} suppressed) -> {dst}",
+        file=sys.stderr,
+    )
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="diff_cleanup",
@@ -32,12 +62,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "input",
         nargs="?",
-        help="Path to the rl-diff JSON report (default: stdin).",
+        help="Path to the rl-diff JSON report, or an rl-html report directory "
+        "(default: stdin for JSON).",
     )
     parser.add_argument(
         "-o",
         "--output",
-        help="Where to write the cleaned report (default: stdout).",
+        help="Where to write the cleaned report (default: stdout for JSON; "
+        "required output directory for an rl-html report).",
     )
     parser.add_argument(
         "-c",
@@ -53,6 +85,8 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         deny_keys = load_deny_keys(args.config) if args.config else DEFAULT_DENY_KEYS
+        if args.input and Path(args.input).is_dir():
+            return _run_html(args, deny_keys)
         report = _load(args.input)
         cleaned, kept, suppressed = clean_report(report, deny_keys)
     except (OSError, json.JSONDecodeError, ValueError) as err:
