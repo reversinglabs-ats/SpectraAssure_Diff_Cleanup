@@ -10,6 +10,10 @@ or classification — and drops the rest.
 In testing against a real HP SureClick Enterprise minor bump, this reduced 629
 diff entries to the 3 that actually mattered.
 
+It works on both the JSON report and the interactive `rl-html` report — the same
+filter, applied to the HTML report's embedded diff data, so the "Version Diff"
+view opens already decluttered.
+
 ## Disclaimer of Warranty
 
 This application is provided "as is" and "as available" without any warranties of any kind, either express or implied.
@@ -65,8 +69,8 @@ python -m diff_cleanup report.rl-diff-diff-with-<old>.json -o cleaned.json
 
 | Argument | Meaning | Default |
 |----------|---------|---------|
-| `input` (positional) | Path to the `rl-diff` JSON report to clean | read from **stdin** |
-| `-o`, `--output` | Path to write the cleaned report | write to **stdout** |
+| `input` (positional) | Path to the `rl-diff` JSON report, **or** an `rl-html` report directory, to clean | read from **stdin** (JSON) |
+| `-o`, `--output` | Path to write the cleaned report (file for JSON; **required** output directory for `rl-html`) | write to **stdout** (JSON) |
 | `-c`, `--config` | Alternate allow/deny TOML for this run (see below) | bundled config |
 | `--explain` | Print one line per suppressed entry to stderr showing why it was dropped | off |
 
@@ -143,6 +147,32 @@ at your own copy for that run:
 ```bash
 diff-cleanup report.json --config my-rules.toml -o cleaned.json
 ```
+
+### Cleaning an `rl-html` report
+
+`rl-secure` can also emit an interactive HTML report. Use the `rl-html` report
+type with `--diff-with` to get a version diff:
+
+```bash
+rl-secure report rl-html pkg:rl/<project>/<package>@<new> \
+  --diff-with=<old> --output-path ./html-report
+```
+
+That writes a directory (an `*sdlc.html` file plus a `__deps/` folder). Point the
+tool at the directory and give it an output directory with `-o`:
+
+```bash
+diff-cleanup ./html-report -o ./html-report-clean
+```
+
+The tool copies the report to the output directory and filters the diff embedded
+in it, so the "Version Diff" view shows only the signal entries. The full report
+data is untouched — only the diff list is reduced, and nothing else about the
+report changes. `--config` and `--explain` work the same as for JSON.
+
+The output directory must not already exist (the tool will not overwrite one), and
+`-o` is required here — an HTML report is a directory, not something to stream to
+stdout.
 
 ## Development
 
